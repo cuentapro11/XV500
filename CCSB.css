@@ -951,42 +951,50 @@ html { background-color: #F8FBFF; }
     animation: gentle-bounce 2s ease-in-out infinite;
 }
 
-/* Carrusel */
+/* Carrusel (mismo sistema de tamaño de imagen que la invitación de ejemplo) */
 .carousel-container {
     position: relative;
-    max-width: 1200px;
+    width: 100%;
+    max-width: 800px;
     margin: 0 auto 2rem;
     overflow: hidden;
 }
 
 .carousel-track-container {
     overflow: hidden;
+    width: 100%;
+    position: relative;
 }
 
 .carousel-track {
     display: flex;
     transition: transform 0.5s ease-in-out;
-    gap: 1rem;
-    padding: 1rem;
     width: 100%;
+    overflow: visible;
 }
 
-/* Cada tarjeta del carrusel */
+/* Cada tarjeta del carrusel: 3 imágenes por fila en PC, sin alto fijo,
+   la imagen conserva su proporción real (igual que en el ejemplo) */
 .carousel-item {
-    flex: 0 0 calc(100% / 3);
+    flex: 0 0 33.333%;
     box-sizing: border-box;
-    height: 600px;
-    border-radius: 0;
-    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
 }
 
 /* Imagen dentro de la tarjeta */
 .carousel-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
     display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
     border-radius: 0;
+    box-shadow: 0 10px 24px rgba(47,75,110,0.35);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
 /* Botones de navegación */
@@ -1033,29 +1041,30 @@ html { background-color: #F8FBFF; }
     .carousel-track {
         width: 100%;
     }
-    .carousel-item {
-        flex: 0 0 33.333%;
-        height: 560px;
-        box-sizing: border-box;
-    }
+    /* Sigue en 3 por fila y sin alto fijo, igual que el ejemplo */
 }
 
 @media (max-width: 768px) {
     .carousel-track {
         width: 100%;
         padding: 0; /* quita posibles líneas por padding */
-        gap: 0.5rem;
     }
     .carousel-item {
-        flex: 0 0 100%;
-        height: 620px;
+        flex: 0 0 100% !important;
+        padding: 0 6px !important;
+        height: 460px !important;
         box-sizing: border-box;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
     }
     .carousel-item img {
-        box-shadow: none;
-        transform: none;
-        height: 100%;
-        max-height: none;
+        width: auto !important;
+        height: auto !important;
+        max-width: 100% !important;
+        max-height: 460px !important;
+        object-fit: contain !important;
+        transform: none !important;
     }
 
     .carousel-btn {
@@ -1353,10 +1362,6 @@ html { background-color: #F8FBFF; }
         grid-template-columns: 1fr;
     }
 
-    .carousel-item {
-        height: 620px;
-    }
-    
     .carousel-btn {
         width: 40px;
         height: 40px;
@@ -1381,15 +1386,23 @@ html { background-color: #F8FBFF; }
         gap: 0.125rem;
         max-width: 28rem;
     }
-    
-
-    
-
 
     .carousel-item {
-        height: 560px;
+        flex: 0 0 100% !important;
+        padding: 0 8px !important;
+        height: 400px !important;
+        box-sizing: border-box;
     }
-    
+    .carousel-item img {
+        width: auto !important;
+        height: auto !important;
+        max-width: 100% !important;
+        max-height: 400px !important;
+        object-fit: contain !important;
+        border-radius: 0;
+        transform: none !important;
+    }
+
     .modal-content {
         padding: 1.5rem;
     }
