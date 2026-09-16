@@ -260,16 +260,28 @@ function initializeCarousel() {
     const totalSlidesElement = document.getElementById('totalSlides');
     if (totalSlidesElement) totalSlidesElement.textContent = totalSlides;
 
+    // Auto-play del carrusel. Se guarda en una variable para poder
+    // reiniciarlo cada vez que el usuario interactúa manualmente (ver
+    // restartAutoplay más abajo) y así evitar que un tick automático
+    // "choque" con un clic manual y salte una foto de golpe.
+    let autoplayId = null;
+    function restartAutoplay() {
+        if (autoplayId) clearInterval(autoplayId);
+        autoplayId = setInterval(() => {
+            nextSlide();
+        }, 2500);
+    }
+
     if (nextBtn) {
         nextBtn.addEventListener('click', () => {
-            currentSlide = (currentSlide + 1) % totalSlides;
-            updateCarousel();
+            nextSlide();
+            restartAutoplay();
         });
     }
     if (prevBtn) {
         prevBtn.addEventListener('click', () => {
-            currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
-            updateCarousel();
+            previousSlide();
+            restartAutoplay();
         });
     }
 
@@ -278,10 +290,7 @@ function initializeCarousel() {
     requestAnimationFrame(updateCarousel);
     setTimeout(updateCarousel, 200);
 
-    // Auto-play del carrusel
-    setInterval(() => {
-        nextSlide();
-    }, 2500);
+    restartAutoplay();
 }
 
 function updateCarousel() {
@@ -291,9 +300,18 @@ function updateCarousel() {
         if (!items.length) return;
         const container = track.parentElement;
 
-        // Temporarily reset transform to measure actual positions
+        // Temporarily reset transform to measure actual positions.
+        // IMPORTANTE: hay que apagar la transición ANTES de resetear el
+        // transform. Si no, el navegador anima hacia "none" en vez de
+        // saltar al instante, y getBoundingClientRect() mide una posición
+        // a medio camino de esa animación en lugar de la posición real.
+        // Ese pequeño error se acumulaba en cada movimiento del carrusel
+        // y terminaba empujando las últimas fotos fuera del área visible.
+        const previousTransition = track.style.transition;
         const previousTransform = track.style.transform;
+        track.style.transition = 'none';
         track.style.transform = 'none';
+        void track.offsetWidth; // fuerza reflow inmediato antes de medir
 
         const firstRect = items[0].getBoundingClientRect();
         const secondRect = items[1] ? items[1].getBoundingClientRect() : null;
@@ -315,13 +333,14 @@ function updateCarousel() {
         if (wrapped) {
             // Al dar la vuelta, salta directo a la foto 1 sin animar el regreso
             // (evita el efecto de "devolverse" deslizando hacia atrás por todas las fotos)
-            const prevTransition = track.style.transition;
-            track.style.transition = 'none';
+            // La transición ya está en 'none' desde la medición de arriba.
             track.style.transform = `translateX(${translateXpx}px)`;
             void track.offsetWidth; // fuerza reflow para aplicar el salto sin animación
-            track.style.transition = prevTransition || '';
+            track.style.transition = previousTransition || '';
         } else {
-            // Apply transform
+            // Restaurar la transición ANTES de aplicar el nuevo transform,
+            // para que el desplazamiento normal SÍ se vea animado.
+            track.style.transition = previousTransition || '';
             track.style.transform = `translateX(${translateXpx}px)`;
         }
         // console.log('Carousel moved to slide:', { currentSlide, visibleCount, maxIndex, translateXpx, stepWidth, baseLeft });
