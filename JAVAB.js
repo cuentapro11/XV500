@@ -8,58 +8,25 @@ let enableMusic = false;
 
 // Funciones globales para los botones del modal
 function enterWithMusicClick() {
+    // El botón permanece deshabilitado hasta que el player de YouTube está
+    // realmente listo (ver onPlayerReady), así que para cuando el usuario
+    // puede hacer click aquí, player.playVideo() siempre se ejecuta de forma
+    // síncrona dentro del gesto del usuario. Esto es justo lo que exige
+    // iOS Safari para permitir la reproducción de audio/video.
     enableMusic = true;
     const modal = document.getElementById('welcomeModal');
     if (modal) {
         modal.style.display = 'none';
     }
-
-    // El player se precarga desde DOMContentLoaded (ver loadYouTubeAPI más abajo),
-    // así que si ya está listo arrancamos la música de inmediato, dentro del mismo
-    // tick del click. Eso es justo lo que iOS Safari exige para permitir el audio;
-    // si el player se crea o se reproduce de forma asíncrona (fuera del gesto del
-    // usuario), iOS lo bloquea en silencio y por eso antes no sonaba en iPhone.
     if (playerReady && player) {
-        startBackgroundMusic();
+        document.getElementById('musicPlayer').style.display = 'block';
+        player.playVideo();
+        isPlaying = true;
+        updateMusicIcon();
     }
-    // Si el player todavía no está listo (conexión lenta), onPlayerReady se
-    // encarga de reproducir apenas termine de inicializar. Ese caso es un
-    // best-effort: al no ocurrir ya dentro del mismo gesto de clic, Safari
-    // puede llegar a bloquearlo igual (limitación del navegador, no del código).
-}
-
-// Arranca la música de fondo de la forma más confiable posible en iOS/Safari:
-// primero silenciada (los navegadores siempre permiten reproducir en silencio
-// sin gesto del usuario) y recién después, dentro del mismo ciclo síncrono,
-// le quitamos el silencio. Esta secuencia funciona mejor que pedir sonido
-// directo desde el primer llamado.
-function startBackgroundMusic() {
-    if (!player) return;
-    const musicPlayer = document.getElementById('musicPlayer');
-    if (musicPlayer) musicPlayer.style.display = 'block';
-
-    player.mute();
-    player.playVideo();
-    player.unMute();
-    player.setVolume(100);
-    isPlaying = true;
-    updateMusicIcon();
-
-    // Reintentos cortos por si el primer intento no "prendió" el audio
-    // (pasa a veces en iOS/Safari aunque el gesto sí se haya registrado).
-    [150, 500, 1200].forEach((delay) => {
-        setTimeout(() => {
-            if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() !== 1) {
-                player.unMute();
-                player.setVolume(100);
-                player.playVideo();
-            }
-        }, delay);
-    });
 }
 
 function enterWithoutMusicClick() {
-    // console.log('Función enterWithoutMusicClick() ejecutada');
     enableMusic = false;
     const modal = document.getElementById('welcomeModal');
     if (modal) {
@@ -73,21 +40,34 @@ function setupModalButtons() {
     const enterWithoutMusic = document.getElementById('enterWithoutMusic');
     const modal = document.getElementById('welcomeModal');
 
-    // Nota: la lógica real de estos dos botones vive en enterWithMusicClick()
-    // y enterWithoutMusicClick() (llamadas por el atributo onclick del HTML).
-    // Aquí solo nos aseguramos de que ese binding exista incluso si el
-    // atributo inline fallara por algún motivo, sin duplicar la lógica.
-    if (enterWithMusic && !enterWithMusic.onclick) {
-        enterWithMusic.onclick = enterWithMusicClick;
+    if (enterWithMusic) {
+        enterWithMusic.onclick = function() {
+            enableMusic = true;
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            if (playerReady && player) {
+                const musicPlayer = document.getElementById('musicPlayer');
+                if (musicPlayer) musicPlayer.style.display = 'block';
+                player.playVideo();
+                isPlaying = true;
+                updateMusicIcon();
+            }
+        };
     }
-    if (enterWithoutMusic && !enterWithoutMusic.onclick) {
-        enterWithoutMusic.onclick = enterWithoutMusicClick;
+
+    if (enterWithoutMusic) {
+        enterWithoutMusic.onclick = function() {
+            enableMusic = false;
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        };
     }
 }
 
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
-    // console.log('DOM cargado, inicializando...');
     initializeCountdown();
     initializeCarousel();
     setupModalButtons();
@@ -102,15 +82,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // que playVideo() pueda ejecutarse de forma síncrona dentro del gesto del
     // usuario en enterWithMusicClick(). Esto es lo que exige iOS Safari.
     loadYouTubeAPI();
+
+    // Salvaguarda: si por lo que sea el player no está listo en unos
+    // segundos (red lenta, bloqueo, etc.), se habilita igual el botón para
+    // no dejar al invitado atascado en el modal de bienvenida.
+    setTimeout(enableMusicButton, 6000);
 });
 
 // También configurar cuando la página esté completamente cargada
 window.addEventListener('load', function() {
-    // console.log('Ventana completamente cargada');
     setupModalButtons();
 });
-
-
 
 // Cargar la API de YouTube
 function loadYouTubeAPI() {
@@ -158,14 +140,27 @@ function onPlayerReady(event) {
         musicToggle.addEventListener('click', toggleMusic);
     }
 
-    // Caso borde: el usuario ya hizo click en "con música" antes de que el
-    // player terminara de inicializar (ej. conexión lenta). Lo reproducimos
-    // apenas esté listo. Ojo: como esto ya NO ocurre dentro del gesto de
-    // clic del usuario, en iOS Safari puede llegar a bloquearse igual — es
-    // una limitación del navegador. Por eso el player se precarga desde el
-    // inicio, para minimizar las chances de caer en este caso.
+    enableMusicButton();
+
     if (enableMusic && !isPlaying) {
-        startBackgroundMusic();
+        if (musicPlayer) musicPlayer.style.display = 'block';
+        event.target.playVideo();
+        isPlaying = true;
+        updateMusicIcon();
+    }
+}
+
+// Habilita el botón "Ingresar con música" una vez el player está listo
+// (o tras un tiempo máximo de espera, para no dejar al usuario atascado
+// si YouTube tarda o falla en cargar).
+function enableMusicButton() {
+    const btn = document.getElementById('enterWithMusic');
+    const label = document.getElementById('enterWithMusicLabel');
+    if (btn && btn.disabled) {
+        btn.disabled = false;
+    }
+    if (label) {
+        label.textContent = 'Ingresar con música';
     }
 }
 
@@ -184,6 +179,7 @@ function onPlayerError(event) {
     musicPlayer.style.display = 'block';
     isPlaying = false;
     updateMusicIcon();
+    enableMusicButton();
 }
 
 function toggleMusic() {

@@ -918,7 +918,8 @@ html { background-color: #F8FBFF; }
 }
 .quote::before { content: "“"; top: -1.5rem; font-size: 2rem; }
 .quote::after { content: "”"; bottom: -2.5rem; font-size: 2rem; }
-/* Framed carousel images - Polaroid style */
+/* Framed carousel images - Polaroid style (mismo sistema que Boda700L,
+   con el marco un poco más grueso: 6px en los lados / 20px en la base) */
 .framed-photo {
     display: block;
     width: 100%;
@@ -926,9 +927,9 @@ html { background-color: #F8FBFF; }
     object-fit: contain;
     box-sizing: border-box;
     background: #2F4B6E;
-    border: 10px solid #2F4B6E;
-    border-bottom-width: 38px; /* pie polaroid */
-    border-radius: 4px;
+    border: 6px solid #2F4B6E;
+    border-bottom-width: 20px; /* pie polaroid */
+    border-radius: 0;
     box-shadow: 0 10px 24px rgba(47,75,110,0.35);
     transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
@@ -1653,7 +1654,19 @@ button[class*="carousel"] {
 .carousel-track { overflow: hidden; }
 
 @media (max-width: 768px) {
-    .framed-photo { margin: 16px auto 24px; max-width: calc(100% - 32px); }
+    .framed-photo {
+        margin: 16px auto 24px;
+        max-width: calc(100% - 32px);
+        border-width: 4px !important;
+        border-bottom-width: 14px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .framed-photo {
+        border-width: 3px !important;
+        border-bottom-width: 11px !important;
+    }
 }
 
 .framed-photo:hover { box-shadow: 0 15px 30px rgba(47,75,110,0.35); }
