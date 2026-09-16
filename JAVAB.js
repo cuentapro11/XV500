@@ -8,7 +8,6 @@ let enableMusic = false;
 
 // Funciones globales para los botones del modal
 function enterWithMusicClick() {
-    // console.log('Función enterWithMusicClick() ejecutada');
     enableMusic = true;
     const modal = document.getElementById('welcomeModal');
     if (modal) {
@@ -16,29 +15,47 @@ function enterWithMusicClick() {
     }
 
     // El player se precarga desde DOMContentLoaded (ver loadYouTubeAPI más abajo),
-    // así que si ya está listo llamamos playVideo() de inmediato, dentro del mismo
+    // así que si ya está listo arrancamos la música de inmediato, dentro del mismo
     // tick del click. Eso es justo lo que iOS Safari exige para permitir el audio;
     // si el player se crea o se reproduce de forma asíncrona (fuera del gesto del
     // usuario), iOS lo bloquea en silencio y por eso antes no sonaba en iPhone.
     if (playerReady && player) {
-        document.getElementById('musicPlayer').style.display = 'block';
-        player.unMute();
-        player.setVolume(100);
-        player.playVideo();
-        isPlaying = true;
-        updateMusicIcon();
-        // En iOS/Safari a veces el primer playVideo() no arranca el audio
-        // aunque sí "conecta" el gesto; reintentamos una vez, todavía
-        // dentro del mismo ciclo de interacción del usuario.
+        startBackgroundMusic();
+    }
+    // Si el player todavía no está listo (conexión lenta), onPlayerReady se
+    // encarga de reproducir apenas termine de inicializar. Ese caso es un
+    // best-effort: al no ocurrir ya dentro del mismo gesto de clic, Safari
+    // puede llegar a bloquearlo igual (limitación del navegador, no del código).
+}
+
+// Arranca la música de fondo de la forma más confiable posible en iOS/Safari:
+// primero silenciada (los navegadores siempre permiten reproducir en silencio
+// sin gesto del usuario) y recién después, dentro del mismo ciclo síncrono,
+// le quitamos el silencio. Esta secuencia funciona mejor que pedir sonido
+// directo desde el primer llamado.
+function startBackgroundMusic() {
+    if (!player) return;
+    const musicPlayer = document.getElementById('musicPlayer');
+    if (musicPlayer) musicPlayer.style.display = 'block';
+
+    player.mute();
+    player.playVideo();
+    player.unMute();
+    player.setVolume(100);
+    isPlaying = true;
+    updateMusicIcon();
+
+    // Reintentos cortos por si el primer intento no "prendió" el audio
+    // (pasa a veces en iOS/Safari aunque el gesto sí se haya registrado).
+    [150, 500, 1200].forEach((delay) => {
         setTimeout(() => {
             if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() !== 1) {
                 player.unMute();
+                player.setVolume(100);
                 player.playVideo();
             }
-        }, 300);
-    }
-    // Si el player todavía no está listo (conexión lenta), onPlayerReady se
-    // encarga de reproducir apenas termine de inicializar.
+        }, delay);
+    });
 }
 
 function enterWithoutMusicClick() {
@@ -56,43 +73,15 @@ function setupModalButtons() {
     const enterWithoutMusic = document.getElementById('enterWithoutMusic');
     const modal = document.getElementById('welcomeModal');
 
-    // console.log('Configurando botones del modal...', { enterWithMusic, enterWithoutMusic, modal });
-
-    if (enterWithMusic) {
-        enterWithMusic.onclick = function() {
-            // console.log('Botón CON música clickeado');
-            enableMusic = true;
-            if (modal) {
-                modal.style.display = 'none';
-            }
-            // Mismo arreglo que en enterWithMusicClick: reproducir de forma
-            // síncrona dentro del click si el player ya está precargado.
-            if (playerReady && player) {
-                const musicPlayer = document.getElementById('musicPlayer');
-                if (musicPlayer) musicPlayer.style.display = 'block';
-                player.unMute();
-                player.setVolume(100);
-                player.playVideo();
-                isPlaying = true;
-                updateMusicIcon();
-                setTimeout(() => {
-                    if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() !== 1) {
-                        player.unMute();
-                        player.playVideo();
-                    }
-                }, 300);
-            }
-        };
+    // Nota: la lógica real de estos dos botones vive en enterWithMusicClick()
+    // y enterWithoutMusicClick() (llamadas por el atributo onclick del HTML).
+    // Aquí solo nos aseguramos de que ese binding exista incluso si el
+    // atributo inline fallara por algún motivo, sin duplicar la lógica.
+    if (enterWithMusic && !enterWithMusic.onclick) {
+        enterWithMusic.onclick = enterWithMusicClick;
     }
-
-    if (enterWithoutMusic) {
-        enterWithoutMusic.onclick = function() {
-            // console.log('Botón SIN música clickeado');
-            enableMusic = false;
-            if (modal) {
-                modal.style.display = 'none';
-            }
-        };
+    if (enterWithoutMusic && !enterWithoutMusic.onclick) {
+        enterWithoutMusic.onclick = enterWithoutMusicClick;
     }
 }
 
@@ -171,14 +160,12 @@ function onPlayerReady(event) {
 
     // Caso borde: el usuario ya hizo click en "con música" antes de que el
     // player terminara de inicializar (ej. conexión lenta). Lo reproducimos
-    // apenas esté listo.
+    // apenas esté listo. Ojo: como esto ya NO ocurre dentro del gesto de
+    // clic del usuario, en iOS Safari puede llegar a bloquearse igual — es
+    // una limitación del navegador. Por eso el player se precarga desde el
+    // inicio, para minimizar las chances de caer en este caso.
     if (enableMusic && !isPlaying) {
-        if (musicPlayer) musicPlayer.style.display = 'block';
-        event.target.unMute();
-        event.target.setVolume(100);
-        event.target.playVideo();
-        isPlaying = true;
-        updateMusicIcon();
+        startBackgroundMusic();
     }
 }
 
@@ -220,14 +207,14 @@ function updateMusicIcon() {
             volumeIcon.innerHTML = `
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#222" stroke="#fff" stroke-width="1"></polygon>
                 <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.08" stroke="#222" stroke-width="2"></path>
-                <circle cx="6.5" cy="12" r="1" fill="#D98FA3"/>
+                <circle cx="6.5" cy="12" r="1" fill="#6B8FB6"/>
             `;
         } else {
             volumeIcon.innerHTML = `
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#222" stroke="#fff" stroke-width="1"></polygon>
-                <line x1="19" y1="9" x2="17" y2="11" stroke="#ff6b6b" stroke-width="2"></line>
-                <line x1="17" y1="9" x2="19" y2="11" stroke="#ff6b6b" stroke-width="2"></line>
-                <circle cx="6.5" cy="12" r="1" fill="#ff6b6b"/>
+                <line x1="19" y1="9" x2="17" y2="11" stroke="#2F4B6E" stroke-width="2"></line>
+                <line x1="17" y1="9" x2="19" y2="11" stroke="#2F4B6E" stroke-width="2"></line>
+                <circle cx="6.5" cy="12" r="1" fill="#2F4B6E"/>
             `;
         }
     }
